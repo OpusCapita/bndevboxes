@@ -1,0 +1,107 @@
+ {
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "gitToken": {
+          "type": "String"
+        },
+        "resourceGroupShort": {
+            "type": "String"
+        },
+        "keyVaultUserId": {
+            "defaultValue": "f09db2f2-93fb-4d8d-8013-1be70428575e",
+            "type": "String"
+        },
+        "sshPublicKey": {
+            "type": "String"
+        },
+        "adminUserName": {
+            "type": "String"
+        }
+    },
+    "variables": {
+      "keyVaultName": "[concat(parameters('resourceGroupShort'), 'vlt')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.KeyVault/vaults",
+            "name": "[variables('keyVaultName')]",
+            "apiVersion": "2015-06-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "scale": null,
+            "properties": {
+                "sku": {
+                    "family": "A",
+                    "name": "Standard"
+                },
+                "tenantId": "[subscription().tenantId]",
+                "accessPolicies": [
+                    {
+                        "tenantId": "[subscription().tenantId]",
+                        "objectId": "[parameters('keyVaultUserId')]",
+                        "permissions": {
+                            "keys": [
+                                "Get",
+                                "List",
+                                "Update",
+                                "Create",
+                                "Import",
+                                "Delete",
+                                "Recover",
+                                "Backup",
+                                "Restore"
+                            ],
+                            "secrets": [
+                                "Get",
+                                "List",
+                                "Set",
+                                "Delete",
+                                "Recover",
+                                "Backup",
+                                "Restore"
+                            ]
+                        }
+                    }
+                ],
+                "enabledForDeployment": true,
+                "enabledForTemplateDeployment": true
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/vmSshPublicKey')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "value": "[parameters('sshPublicKey')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/gitToken')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "value": "[parameters('gitToken')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/adminUserName')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "value": "[parameters('adminUserName')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
+            ]
+        }
+    ]
+}
+ 

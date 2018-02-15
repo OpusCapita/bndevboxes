@@ -1,0 +1,152 @@
+ {
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceGroupShort": {
+            "defaultValue": "bndevboxes",
+            "type": "String"
+        },
+        "extLbName": {
+            "defaultValue": "ExtLB",
+            "type": "String"
+        },
+        "ExtLbPublicIpName": {
+            "defaultValue": "ExtPubIp",
+            "type": "String"
+        },
+        "domainNameLabel": {
+          "defaultValue": "bndevboxes",
+          "type":"String"
+        },
+        "vnetExisting": {
+          "defaultValue": "no",
+          "type": "String"
+        },
+        "vnetName": {
+          "defaultValue": "",
+          "type": "String"
+        },
+        "vnetResourceGroupName": {
+          "defaultValue": "",
+          "type": "String"
+        },
+        "vnetIpRange": {
+          "defaultValue": "192.168.0.0/24",
+          "type": "String"
+        },
+        "mgmtSubnetName": {
+            "defaultValue": "mgmt",
+            "type": "String"
+        },
+        "mgmtSubnetIpRange": {
+          "defaultValue": "192.168.0.0/25",
+          "type": "String"
+        },
+        "workerPoolSize": {
+            "defaultValue": "1",
+            "type": "String"
+        },
+        "workerPoolVmSize": {
+            "defaultValue": "Standard_B2ms",
+            "type": "String"
+        },
+        "workerPoolScaleSetName": {
+            "defaultValue": "bndevboxpool",
+            "type": "String"
+        }
+    },
+    "variables": {
+      "vnetName": "[if(equals(parameters('vnetExisting'),'no'), concat(parameters('resourceGroupShort'), '-vnet'), parameters('vnetName'))]",
+      "vnetIDPrefix": "[if(equals(parameters('vnetExisting'),'no'), resourceGroup().name, parameters('vnetResourceGroupName'))]",
+      "vnetID": "[resourceId(variables('vnetIDPrefix'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+      "mgmtSubnetIdRef": "[concat(variables('vnetID'), '/subnets/', parameters('mgmtSubnetName'))]",
+      "keyVaultName": "[concat(parameters('resourceGroupShort'), 'vlt')]",
+      "diagStorageAccountName": "[concat(parameters('resourceGroupShort'), 'diag')]",
+      "deployWorkersUrl": "[uri(deployment().properties.templateLink.uri, 'deploy_workers.json')]"
+    },
+    "resources": [
+        {
+            "condition": "[equals(parameters('vnetExisting'),'no')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('vnetName')]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vnetIpRange')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('mgmtSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('mgmtSubnetIpRange')]"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            },
+            "kind": "Storage",
+            "name": "[variables('diagStorageAccountName')]",
+            "apiVersion": "2016-01-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "properties": {},
+            "dependsOn": []
+        },
+        { 
+          "apiVersion": "2017-05-10", 
+          "name": "workerPoolDeploy", 
+          "type": "Microsoft.Resources/deployments", 
+          "properties": { 
+            "mode": "incremental", 
+            "templateLink": {
+              "uri": "[variables('deployWorkersUrl')]",
+              "contentVersion": "1.0.0.0"
+            }, 
+            "parameters": {
+                "gitToken": {
+                    "reference": {
+                      "keyVault": {
+                        "id": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name, '/providers/Microsoft.KeyVault/vaults/',variables('keyVaultName'))]"
+                      },
+                      "secretName": "gitToken"
+                    }
+                },
+                "sshPublicKey": {
+		    "reference": {
+		      "keyVault": {
+			"id": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name, '/providers/Microsoft.KeyVault/vaults/',variables('keyVaultName'))]"
+		      },
+		      "secretName": "vmSshPublicKey"
+		    }
+                },
+                "adminUserName": {
+                    "reference": {
+                      "keyVault": {
+                        "id": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name, '/providers/Microsoft.KeyVault/vaults/',variables('keyVaultName'))]"
+                      },
+                      "secretName": "adminUserName"
+                    }
+                },
+                "subnetIdRef": {value:"[variables('mgmtSubnetIdRef')]"},
+                "diagStorageAccountName": {value:"[variables('diagStorageAccountName')]"},
+                "workerPoolSize": {value:"[parameters('workerPoolSize')]"},
+                "workerPoolVmSize": {value:"[parameters('workerPoolVmSize')]"},
+                "workerPoolScaleSetName": {value:"[parameters('workerPoolScaleSetName')]"},
+                "extLbName": {value:"[parameters('extLbName')]"},
+                "ExtLbPublicIpName": {value:"[parameters('ExtLbPublicIpName')]"}
+            } 
+          },
+          "dependsOn": []
+        }
+    ]
+}

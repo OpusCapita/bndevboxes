@@ -1,0 +1,280 @@
+ {
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "gitToken": {
+          "type": "String"
+        },
+        "sshPublicKey": {
+            "type": "String"
+        },
+        "adminUserName": {
+            "type": "String"
+        },
+        "subnetIdRef": {
+          "type": "String"
+        },
+        "diagStorageAccountName": {
+          "type": "String"
+        },
+        "workerPoolSize": {
+            "type": "String"
+        },
+        "workerPoolVmSize": {
+            "type": "String"
+        },
+        "workerPoolScaleSetName": {
+            "type": "String"
+        },
+       "extLbName": {
+          "defaultValue": "ExtLB",
+          "type": "String"
+        },
+        "ExtLbPublicIpName": {
+          "type": "String"
+        },
+        "domainNameLabel": {
+          "defaultValue": "bndevboxes",
+          "type": "String"
+        }
+    },
+    "variables": {
+      "extLbFrontEndPoolId": "[concat(resourceGroup().id, '/providers/Microsoft.Network/loadBalancers/', parameters('extLbName'), '/frontendIPConfigurations/LoadBalancerFrontEnd')]",
+      "extLbHttpBackEndAddressPoolId": "[concat(resourceGroup().id, '/providers/Microsoft.Network/loadBalancers/', parameters('extLbName'), '/backendAddressPools/gatewayPool')]",
+      "sshNatPoolName": "sshNatPool",
+      "httpNatPoolName": "httpNatPool",
+      "bePoolName": "devboxPool",
+      "networkSecurityGroupName": "[concat(parameters('extLbName'), '-nsg')]"
+    },
+    "resources": [
+         {
+            "comments": "Public IP for web access.",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[parameters('ExtLbPublicIpName')]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Static",
+                "idleTimeoutInMinutes": 4,
+                "dnsSettings": {
+                    "domainNameLabel": "[parameters('domainNameLabel')]"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "comments": "Public facing loadbalancer, acting as public entry point to env. http / https is balanced to worker pool.",
+            "type": "Microsoft.Network/loadBalancers",
+            "name": "[parameters('extLbName')]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "LoadBalancerFrontEnd",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('ExtLbPublicIpName'))]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "[variables('bePoolName')]"
+                    }
+                ],
+                "inboundNatRules": [],
+                "outboundNatRules": [],
+                "inboundNatPools": [
+                    {
+                        "name":"[variables('sshNatPoolName')]",
+                        "properties":{
+                            "frontendIPConfiguration": {
+                                "id": "[variables('extLbFrontEndPoolId')]"
+                            },
+			    "protocol":"tcp",
+			    "frontendPortRangeStart":"2200",
+			    "frontendPortRangeEnd":"2300",
+			    "backendPort":"22"
+			}
+	            },
+                    {
+                        "name":"[variables('httpNatPoolName')]",
+                        "properties":{
+                            "frontendIPConfiguration": {
+                                "id": "[variables('extLbFrontEndPoolId')]"
+                            },
+                            "protocol":"tcp",
+                            "frontendPortRangeStart":"8080",
+                            "frontendPortRangeEnd":"8180",
+                            "backendPort":"8080"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('ExtLbPublicIpName'))]"
+            ]
+        },
+        {
+            "comments": "net work security group applied to edge nodes.",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "name": "[variables('networkSecurityGroupName')]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "default-allow-ssh",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 1000,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "allow-http",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "8080",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 1005,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": []
+        },
+        {
+            "comments": "VM scale set for swarm worker pool",
+            "type": "Microsoft.Compute/virtualMachineScaleSets",
+            "sku": {
+                "name": "[parameters('workerPoolVmSize')]",
+                "tier": "Standard",
+                "capacity": "[parameters('workerPoolSize')]"
+            },
+            "name": "[parameters('workerPoolScaleSetName')]",
+            "apiVersion": "2016-04-30-preview",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "upgradePolicy": {
+                    "mode": "Manual"
+                },
+                "virtualMachineProfile": {
+                    "osProfile": {
+                        "computerNamePrefix": "[concat(parameters('workerPoolScaleSetName'),'Inst')]",
+                        "adminUsername": "[parameters('adminUserName')]",
+                        "linuxConfiguration": {
+                            "disablePasswordAuthentication": true,
+                            "ssh": {
+                                "publicKeys": [
+                                    {
+                                        "path": "[concat('/home/', parameters('adminUserName'), '/.ssh/authorized_keys')]",
+                                        "keyData": "[parameters('sshPublicKey')]"                                    
+                                    }
+                                ]
+                            }
+                        },
+                        "secrets": []
+                    },
+                    "storageProfile": {
+                        "osDisk": {
+                          "createOption": "FromImage",
+                          "caching": "ReadOnly"
+                        },
+                        "imageReference": {
+                            "publisher": "Canonical",
+                            "offer": "UbuntuServer",
+                            "sku": "16.04.0-LTS",
+                            "version": "latest"
+                        },
+                        "dataDisks": [
+                          {
+                            "lun": "1",
+                            "createOption": "empty",
+                            "diskSizeGB": "1023"
+                          }
+                        ]
+                    },
+                    "networkProfile": {
+                        "networkInterfaceConfigurations": [
+                            {
+                                "name": "[concat(parameters('workerPoolScaleSetName'),'-nic')]",
+                                "properties": {
+                                    "primary": true,
+                                    "ipConfigurations": [
+                                        {
+                                            "name": "[concat(parameters('workerPoolScaleSetName'),'-ipconfig')]",
+                                            "properties": {
+                                                "subnet": {
+                                                    "id": "[parameters('subnetIdRef')]"
+                                                },
+                                                "loadBalancerBackendAddressPools": [
+                                                    {
+                                                        "id":"[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', parameters('extLbName'), '/backendAddressPools/', variables('bePoolName'))]"
+                                                    }
+                                                ],
+                                                "loadBalancerInboundNatPools":[
+                                                    {
+                                                        "id":"[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', parameters('extLbName'), '/inboundNatPools/', variables('sshNatPoolName'))]"
+                                                    },
+                                                    {
+                                                        "id":"[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', parameters('extLbName'), '/inboundNatPools/', variables('httpNatPoolName'))]"
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ],
+                                    "networkSecurityGroup": {
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]"
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    "extensionProfile": {
+                      "extensions": [
+                        {
+                          "name" : "devBoxInstallCustomScript",
+                          "properties": {
+                              "publisher": "Microsoft.Azure.Extensions",
+                              "type": "CustomScript",
+                              "typeHandlerVersion": "2.0",
+                              "autoUpgradeMinorVersion": true,
+                              "settings": {
+                                  "fileUris": [
+                                      "[uri(deployment().properties.templateLink.uri, 'devbox-install.sh')]"
+                                  ]
+                              },
+                              "protectedSettings": {
+                                  "commandToExecute": "[concat('./devbox-install.sh ', parameters('adminUserName'), ' ', deployment().properties.templateLink.uri, ' ', parameters('gitToken'))]"
+                              }
+                          }
+                        }
+                      ]
+                    },
+                    "diagnosticsProfile": {
+                        "bootDiagnostics": {
+                            "enabled": true,
+                            "storageUri": "[concat('https://', parameters('diagStorageAccountName'), '.blob.core.windows.net/')]"
+                        }
+                    }
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/loadBalancers', parameters('extLbName'))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]"
+            ]
+        }
+    ]
+}

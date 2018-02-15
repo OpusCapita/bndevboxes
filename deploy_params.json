@@ -1,0 +1,36 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceGroupShort": {
+      "value": "bndevboxes"
+    },
+    "domainNameLabel": {
+      "value": "bndevboxes"
+    },
+    "workerPoolSize": {
+      "value": "1"
+    },
+    "vnetExisting": {
+      "value": "no"
+    },
+    "vnetName": {
+      "value": "bndevbox-vnet"
+    },
+    "vnetIpRange": {
+      "value": "192.168.0.0/24"
+    },
+    "mgmtSubnetIpRange": {
+      "value": "192.168.0.0/23"
+    },
+    "extLbName": {
+      "value": "bndevbox-ExtLB"
+    },
+    "ExtLbPublicIpName": {
+        "value": "bndevbox-ExtPubIp"
+    },
+    "workerPoolScaleSetName": {
+      "value": "bndevboxpool"
+    }
+  }
+}
