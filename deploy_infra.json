@@ -15,7 +15,7 @@
             "type": "String"
         },
         "domainNameLabel": {
-          "defaultValue": "bndevboxes",
+          "defaultValue": "inactive-bndevboxes",
           "type":"String"
         },
         "vnetExisting": {
@@ -43,11 +43,11 @@
           "type": "String"
         },
         "workerPoolSize": {
-            "defaultValue": "1",
+            "defaultValue": "6",
             "type": "String"
         },
         "workerPoolVmSize": {
-            "defaultValue": "Standard_B2ms",
+            "defaultValue": "Promo_DS12_v2",
             "type": "String"
         },
         "workerPoolScaleSetName": {
@@ -94,9 +94,9 @@
                 "name": "Standard_LRS",
                 "tier": "Standard"
             },
-            "kind": "Storage",
+            "kind": "StorageV2",
             "name": "[variables('diagStorageAccountName')]",
-            "apiVersion": "2016-01-01",
+            "apiVersion": "2017-10-01",
             "location": "[resourceGroup().location]",
             "tags": {},
             "properties": {},
@@ -137,13 +137,13 @@
                       "secretName": "adminUserName"
                     }
                 },
-                "subnetIdRef": {value:"[variables('mgmtSubnetIdRef')]"},
-                "diagStorageAccountName": {value:"[variables('diagStorageAccountName')]"},
-                "workerPoolSize": {value:"[parameters('workerPoolSize')]"},
-                "workerPoolVmSize": {value:"[parameters('workerPoolVmSize')]"},
-                "workerPoolScaleSetName": {value:"[parameters('workerPoolScaleSetName')]"},
-                "extLbName": {value:"[parameters('extLbName')]"},
-                "ExtLbPublicIpName": {value:"[parameters('ExtLbPublicIpName')]"}
+                "subnetIdRef": {"value":"[variables('mgmtSubnetIdRef')]"},
+                "diagStorageAccountName": {"value":"[variables('diagStorageAccountName')]"},
+                "workerPoolSize": {"value":"[parameters('workerPoolSize')]"},
+                "workerPoolVmSize": {"value":"[parameters('workerPoolVmSize')]"},
+                "workerPoolScaleSetName": {"value":"[parameters('workerPoolScaleSetName')]"},
+                "extLbName": {"value":"[parameters('extLbName')]"},
+                "ExtLbPublicIpName": {"value":"[parameters('ExtLbPublicIpName')]"}
             } 
           },
           "dependsOn": []

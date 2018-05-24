@@ -13,24 +13,24 @@ if [[ -z "$GIT_TOKEN" ]] ; then
   exit 1
 fi
 
-echo "adding data disk"
+#echo "adding data disk"
 #add managed data disk
-sudo fdisk /dev/sdc << EOF
-n
-p
+#sudo fdisk /dev/sdc << EOF
+#n
+#p
 
 
 
-w
-EOF
+#w
+#EOF
 
-sudo mkfs -t ext4 /dev/sdc1
+#sudo mkfs -t ext4 /dev/sdc1
 
-sudo mkdir -p /var/lib/docker
-sudo mount /dev/sdc1 /var/lib/docker
+#sudo mkdir -p /var/lib/docker
+#sudo mount /dev/sdc1 /var/lib/docker
 
 # persist the mount
-sudo bash -c 'echo "/dev/sdc1       /var/lib/docker   auto    defaults        0       0" >> /etc/fstab'
+#sudo bash -c 'echo "/dev/sdc1       /var/lib/docker   auto    defaults        0       0" >> /etc/fstab'
 
 #install docker
 url=$scriptBase/install_docker.sh
@@ -43,3 +43,17 @@ echo "adding user to docker group" && sudo usermod -aG docker $ADMINUSER
 sudo echo "restarting docker" && sudo systemctl restart docker
 
 sudo apt-get install -y git
+
+#install node
+url=$scriptBase/install_nodejs.sh
+echo "downloading $url"
+curl --header "Authorization: token $GIT_TOKEN" $url > install_nodejs.sh
+sudo chmod +x install_nodejs.sh
+./install_nodejs.sh
+
+# install docker-compose 
+sudo curl -L https://github.com/docker/compose/releases/download/1.21.2/docker-compose-`uname -s`-`uname -m` -o /usr/bin/docker-compose
+chmod +x /usr/bin/docker-compose
+
+# adding daily shutdown cron
+(sudo crontab -l 2>/dev/null; echo "55 16 * * * /sbin/shutdown 5") | sudo crontab -

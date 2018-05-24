@@ -197,13 +197,14 @@
                             "offer": "UbuntuServer",
                             "sku": "16.04.0-LTS",
                             "version": "latest"
-                        },
-                        "dataDisks": [
+                        }
+/*                        ,"dataDisks": [
                           {
                             "lun": "1",
                             "createOption": "empty",
                             "diskSizeGB": "1023"
                           }
+*/
                         ]
                     },
                     "networkProfile": {
