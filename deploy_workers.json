@@ -204,8 +204,8 @@
                             "createOption": "empty",
                             "diskSizeGB": "1023"
                           }
-*/
                         ]
+*/
                     },
                     "networkProfile": {
                         "networkInterfaceConfigurations": [
