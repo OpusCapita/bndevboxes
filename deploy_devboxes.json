@@ -107,15 +107,15 @@
                 ],
                 "copy": [{
                     "name": "inboundNatRules",
-                    "count": "[parameters('devboxCount')]",
+                    "count": "[mul(parameters('devboxCount'),2)]",
                     "input": {
-                        "name": "[concat('natSsh', copyIndex('inboundNatRules'))]",
+                        "name": "[concat(if(equals(mod(copyIndex('inboundNatRules'),2),0), 'natSsh','natHttp'), div(copyIndex('inboundNatRules'),2)  )]",
                         "properties": {
                             "frontendIPConfiguration": {
                                 "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLbName')), '/frontendIPConfigurations/LoadBalancerFrontEnd')]"
                             },
-                            "frontendPort": "[copyIndex('inboundNatRules',2200)]",
-                            "backendPort": 22,
+                            "frontendPort": "[add( div(copyIndex('inboundNatRules'),2), if(equals(mod(copyIndex('inboundNatRules'),2),0),2200,8080) )]",
+                            "backendPort": "[if(equals(mod(copyIndex('inboundNatRules'),2),0),22,8080)]",
                             "enableFloatingIP": false,
                             "idleTimeoutInMinutes": 4,
                             "protocol": "Tcp"
@@ -150,9 +150,14 @@
                                     "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLbName')), '/backendAddressPools/', variables('bePoolName'))]"
                                 }
                             ],
-                            "loadBalancerInboundNatRules": [{
-                                "id": "[resourceId('Microsoft.Network/loadBalancers/inboundNatRules', parameters('extLbName'), concat('natSsh', copyIndex()) )]"
-                            }]
+                            "loadBalancerInboundNatRules": [
+                                {
+                                    "id": "[resourceId('Microsoft.Network/loadBalancers/inboundNatRules', parameters('extLbName'), concat('natSsh', copyIndex()) )]"
+                                },
+                                {
+                                    "id": "[resourceId('Microsoft.Network/loadBalancers/inboundNatRules', parameters('extLbName'), concat('natHttp', copyIndex()) )]"
+                                }
+                            ]
                         }
                     }
                 ],
