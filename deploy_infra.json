@@ -43,8 +43,8 @@
           "type": "String"
         },
         "devboxCount": {
-            "defaultValue": "1",
-            "type": "String"
+            "defaultValue": 1,
+            "type": "int"
         },
         "devboxVmSize": {
             "defaultValue": "Standard_F8s_v2",
