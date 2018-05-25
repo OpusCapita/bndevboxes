@@ -3,19 +3,19 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "resourceGroupShort": {
-            "defaultValue": "bndevboxes",
+            "defaultValue": "bndevdtm",
             "type": "String"
         },
         "extLbName": {
-            "defaultValue": "ExtLB",
+            "defaultValue": "LB",
             "type": "String"
         },
         "ExtLbPublicIpName": {
-            "defaultValue": "ExtPubIp",
+            "defaultValue": "PubIp",
             "type": "String"
         },
         "domainNameLabel": {
-          "defaultValue": "inactive-bndevboxes",
+          "defaultValue": "bndevboxesb",
           "type":"String"
         },
         "vnetExisting": {
@@ -42,16 +42,12 @@
           "defaultValue": "192.168.0.0/25",
           "type": "String"
         },
-        "workerPoolSize": {
-            "defaultValue": "6",
+        "devboxCount": {
+            "defaultValue": "1",
             "type": "String"
         },
-        "workerPoolVmSize": {
-            "defaultValue": "Promo_DS12_v2",
-            "type": "String"
-        },
-        "workerPoolScaleSetName": {
-            "defaultValue": "bndevboxpool",
+        "devboxVmSize": {
+            "defaultValue": "Standard_F8s_v2",
             "type": "String"
         }
     },
@@ -62,7 +58,7 @@
       "mgmtSubnetIdRef": "[concat(variables('vnetID'), '/subnets/', parameters('mgmtSubnetName'))]",
       "keyVaultName": "[concat(parameters('resourceGroupShort'), 'vlt')]",
       "diagStorageAccountName": "[concat(parameters('resourceGroupShort'), 'diag')]",
-      "deployWorkersUrl": "[uri(deployment().properties.templateLink.uri, 'deploy_workers.json')]"
+      "deployWorkersUrl": "[uri(deployment().properties.templateLink.uri, 'deploy_devboxes.json')]"
     },
     "resources": [
         {
@@ -113,38 +109,37 @@
               "contentVersion": "1.0.0.0"
             }, 
             "parameters": {
-                "gitToken": {
-                    "reference": {
-                      "keyVault": {
-                        "id": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name, '/providers/Microsoft.KeyVault/vaults/',variables('keyVaultName'))]"
-                      },
-                      "secretName": "gitToken"
-                    }
-                },
-                "sshPublicKey": {
-		    "reference": {
-		      "keyVault": {
-			"id": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name, '/providers/Microsoft.KeyVault/vaults/',variables('keyVaultName'))]"
-		      },
-		      "secretName": "vmSshPublicKey"
-		    }
-                },
-                "adminUserName": {
-                    "reference": {
-                      "keyVault": {
-                        "id": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name, '/providers/Microsoft.KeyVault/vaults/',variables('keyVaultName'))]"
-                      },
-                      "secretName": "adminUserName"
-                    }
-                },
-                "subnetIdRef": {"value":"[variables('mgmtSubnetIdRef')]"},
-                "diagStorageAccountName": {"value":"[variables('diagStorageAccountName')]"},
-                "workerPoolSize": {"value":"[parameters('workerPoolSize')]"},
-                "workerPoolVmSize": {"value":"[parameters('workerPoolVmSize')]"},
-                "workerPoolScaleSetName": {"value":"[parameters('workerPoolScaleSetName')]"},
-                "extLbName": {"value":"[parameters('extLbName')]"},
-                "ExtLbPublicIpName": {"value":"[parameters('ExtLbPublicIpName')]"},
-                "domainNameLabel": {"value":"[parameters('domainNameLabel')]"}
+              "gitToken": {
+                "reference": {
+                  "keyVault": {
+                    "id": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name, '/providers/Microsoft.KeyVault/vaults/',variables('keyVaultName'))]"
+                  },
+                  "secretName": "gitToken"
+                }
+              },
+              "sshPublicKey": {
+                "reference": {
+                  "keyVault": {
+                    "id": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name, '/providers/Microsoft.KeyVault/vaults/',variables('keyVaultName'))]"
+                  },
+                  "secretName": "vmSshPublicKey"
+                }
+              },
+              "adminUserName": {
+                "reference": {
+                  "keyVault": {
+                    "id": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name, '/providers/Microsoft.KeyVault/vaults/',variables('keyVaultName'))]"
+                  },
+                  "secretName": "adminUserName"
+                }
+              },
+              "subnetIdRef": {"value":"[variables('mgmtSubnetIdRef')]"},
+              "diagStorageAccountName": {"value":"[variables('diagStorageAccountName')]"},
+              "devboxCount": {"value":"[parameters('devboxCount')]"},
+              "devboxVmSize": {"value":"[parameters('devboxVmSize')]"},
+              "extLbName": {"value":"[parameters('extLbName')]"},
+              "ExtLbPublicIpName": {"value":"[parameters('ExtLbPublicIpName')]"},
+              "domainNameLabel": {"value":"[parameters('domainNameLabel')]"}
             } 
           },
           "dependsOn": []

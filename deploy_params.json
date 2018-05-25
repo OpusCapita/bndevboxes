@@ -8,7 +8,7 @@
     "domainNameLabel": {
       "value": "bndevboxes"
     },
-    "workerPoolSize": {
+    "devboxCount": {
       "value": "1"
     },
     "vnetExisting": {
@@ -21,16 +21,13 @@
       "value": "192.168.0.0/24"
     },
     "mgmtSubnetIpRange": {
-      "value": "192.168.0.0/23"
+      "value": "192.168.0.0/25"
     },
     "extLbName": {
-      "value": "bndevbox-ExtLB"
+      "value": "LB"
     },
     "ExtLbPublicIpName": {
-        "value": "bndevbox-ExtPubIp"
-    },
-    "workerPoolScaleSetName": {
-      "value": "bndevboxpool"
+        "value": "PubIp"
     }
   }
 }

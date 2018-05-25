@@ -1,0 +1,301 @@
+ {
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "targetEnv": {
+          "type": "String"
+        },
+        "gitToken": {
+          "type": "String"
+        },
+        "devboxVmNamePrefix": {
+          "defaultValue": "devbox",
+          "type": "String"
+        },
+        "devboxVmSize": {
+          "defaultValue": "Standard_F8s_v2",
+          "type": "String"
+        },
+        "sshPublicKey": {
+          "type": "String"
+        },
+        "adminUserName": {
+          "type": "String"
+        },
+        "extLbName": {
+          "defaultValue": "DevboxExtLB",
+          "type": "String"
+        },
+        "ExtLbPublicIpName": {
+          "type": "String"
+        },
+        "extLbHttpProbeUri": {
+          "type": "String"
+        },
+        "domainNameLabel": {
+          "type": "String"
+        },
+        "devboxVmNicNamePrefix": {
+          "defaultValue": "devboxVmNic",
+          "type": "String"
+        },
+        "devboxNetworkSecurityGroupName": {
+          "type": "String"
+        },
+        "devboxCount": {
+          "type": "int"
+        },
+        "diagStorageAccountName": {
+          "type": "String"
+        },
+        "subnetIdRef": {
+          "type": "String"
+        }
+    },
+    "variables": {
+      "bePoolName": "devboxPool",
+      "extLbFrontEndPoolId": "[concat(resourceGroup().id, '/providers/Microsoft.Network/loadBalancers/', parameters('extLbName'), '/frontendIPConfigurations/LoadBalancerFrontEnd')]",
+      "extLbHttpBackEndAddressPoolId": "[concat(resourceGroup().id, '/providers/Microsoft.Network/loadBalancers/', parameters('extLbName'), '/backendAddressPools/[variables('bePoolName')]')]",
+      "extLbHttpBackEndProbeId": "[concat(resourceGroup().id, '/providers/Microsoft.Network/loadBalancers/', parameters('extLbName'), '/probes/gatewayProbe')]",
+    },
+    "resources": [
+        {
+            "comments": "Public IP for web access.",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[parameters('ExtLbPublicIpName')]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Static",
+                "idleTimeoutInMinutes": 4,
+                "dnsSettings": {
+                    "domainNameLabel": "[parameters('domainNameLabel')]"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "comments": "Public facing loadbalancer, acting as public entry point to env. http / https is balanced to devbox pool.",
+            "type": "Microsoft.Network/loadBalancers",
+            "name": "[parameters('extLbName')]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "LoadBalancerFrontEnd",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('ExtLbPublicIpName'))]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "[variables('bePoolName')]"
+                    }
+                ],
+                "inboundNatRules": [],
+                "outboundNatRules": [],
+                "inboundNatPools": [
+                    {
+                        "name":"[variables('sshNatPoolName')]",
+                        "properties":{
+                            "frontendIPConfiguration": {
+                                "id": "[variables('extLbFrontEndPoolId')]"
+                            },
+                            "protocol":"tcp",
+                            "frontendPortRangeStart":"2200",
+                            "frontendPortRangeEnd":"2300",
+                            "backendPort":"22"
+                        }
+                    },
+                    {
+                        "name":"[variables('httpNatPoolName')]",
+                        "properties":{
+                            "frontendIPConfiguration": {
+                                "id": "[variables('extLbFrontEndPoolId')]"
+                            },
+                            "protocol":"tcp",
+                            "frontendPortRangeStart":"8080",
+                            "frontendPortRangeEnd":"8180",
+                            "backendPort":"8080"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('ExtLbPublicIpName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[concat(parameters('devboxVmNicNamePrefix'), copyIndex())]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAddress": "[concat('192.168.0.'), copyIndex(1)]",
+                            "privateIPAllocationMethod": "Static",
+                            "subnet": {
+                                "id": "[parameters('subnetIdRef')]"
+                            },
+                            "loadBalancerBackendAddressPools": [
+                                {
+                                    "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLbName')), '/backendAddressPools/[variables('bePoolName')]')]"
+                                }
+                            ],
+                            "loadBalancerInboundNatRules": []
+                        }
+                    }
+                ],
+                "dnsSettings": {
+                    "dnsServers": []
+                },
+                "enableIPForwarding": false,
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('devboxNetworkSecurityGroupName'))]"
+                }
+            },
+            "copy": {
+                "name": "devboxvmniccopy",
+                "count": "[parameters('devboxCount')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('devboxNetworkSecurityGroupName'))]",
+                "[resourceId('Microsoft.Network/loadBalancers', parameters('extLbName'))]"
+            ]
+        },
+        {
+            "comments": "All devbox VMs are identical",
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "[concat(parameters('devboxVmNamePrefix'),copyIndex())]",
+            "apiVersion": "2016-04-30-preview",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('devboxVmSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "16.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite"
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "[concat(parameters('devboxVmNamePrefix'),copyIndex())]",
+                    "adminUsername": "[parameters('adminUserName')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": true,
+                        "ssh": {
+                            "publicKeys": [
+                                {
+                                    "path": "[concat('/home/', parameters('adminUserName'), '/.ssh/authorized_keys')]",
+                                    "keyData": "[parameters('sshPublicKey')]"
+                                }
+                            ]
+                        }
+                    },
+                    "secrets": []
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(parameters('devboxVmNicNamePrefix'),copyIndex()))]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": true,
+                        "storageUri": "[concat('https://', parameters('diagStorageAccountName'), '.blob.core.windows.net/')]"
+                    }
+                }
+            },
+            "copy": {
+                "name": "devboxvmcopy",
+                "count": "[parameters('devboxCount')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Compute/availabilitySets', parameters('devboxAvailibilitySetName'))]",
+                "[resourceId('Microsoft.Network/networkInterfaces', concat(parameters('devboxVmNicNamePrefix'), copyIndex()))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "[concat(parameters('devboxVmNamePrefix'), copyIndex(), '/devboxInstallCustomScript')]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                      "[uri(deployment().properties.templateLink.uri, 'devbox-install.sh')]"
+                    ]
+                },
+                "protectedSettings": {
+                    "commandToExecute": "[concat('./devbox-install.sh ', parameters('adminUserName'), ' ', deployment().properties.templateLink.uri, ' ', parameters('gitToken'))]"
+                }
+            },
+            "copy": {
+                "name": "devboxvmcustomscriptcopy",
+                "count": "[parameters('devboxCount')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', concat(parameters('devboxVmNamePrefix'),copyIndex()))]"
+            ]
+        },        
+        {
+            "comments": "net work security group applied to devbox nodes.",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "name": "[parameters('devboxNetworkSecurityGroupName')]",
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "default-allow-ssh",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 1000,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "allow-kong-http",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "8080",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 1005,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": []
+        }
+    ]
+}
