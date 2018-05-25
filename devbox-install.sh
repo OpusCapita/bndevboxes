@@ -32,6 +32,10 @@ fi
 # persist the mount
 #sudo bash -c 'echo "/dev/sdc1       /var/lib/docker   auto    defaults        0       0" >> /etc/fstab'
 
+#prepare filesystem for docker
+sudo mkdir /mnt/docker
+sudo ln -s /mnt/docker /var/lib/docker
+
 #install docker
 url=$scriptBase/install_docker.sh
 echo "downloading $url"
