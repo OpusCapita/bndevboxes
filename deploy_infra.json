@@ -43,7 +43,7 @@
           "type": "String"
         },
         "devboxCount": {
-            "defaultValue": 7,
+            "defaultValue": 8,
             "type": "int"
         },
         "devboxVmSize": {
